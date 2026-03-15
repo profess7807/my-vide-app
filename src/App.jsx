@@ -244,7 +244,7 @@ export default function App() {
 
             <div className="relative mt-6 flex flex-col items-center text-center">
               <img
-                src="/profile.jpg"
+                src={`${import.meta.env.BASE_URL}profile.jpg`}
                 alt={t.profileAlt}
                 className="size-24 rounded-full object-cover ring-2 ring-slate-300/80 shadow-lg dark:ring-slate-700/80 md:size-28"
                 onError={(e) => {
