@@ -1,4 +1,10 @@
 import React, { useEffect, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+// Supabase 클라이언트 초기화
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+const supabase = SUPABASE_URL && SUPABASE_KEY ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 const translations = {
   ko: {
@@ -202,7 +208,65 @@ export default function App() {
   const [dark, setDark] = useDarkMode();
   const [lang, setLang] = useState("ko");
   const [langOpen, setLangOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    message: "",
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState(null);
   const t = translations[lang];
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!supabase) {
+      setSubmitStatus({ type: "error", message: "Supabase 설정이 필요합니다." });
+      return;
+    }
+
+    if (!formData.name.trim() || !formData.email.trim() || !formData.message.trim()) {
+      setSubmitStatus({ type: "error", message: "모든 필드를 입력해주세요." });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitStatus(null);
+
+    try {
+      const { error } = await supabase
+        .from("messages")
+        .insert([
+          {
+            name: formData.name,
+            email: formData.email,
+            message: formData.message,
+            language: lang,
+            created_at: new Date().toISOString(),
+          },
+        ]);
+
+      if (error) {
+        setSubmitStatus({ type: "error", message: `오류: ${error.message}` });
+      } else {
+        setSubmitStatus({ type: "success", message: "메시지가 전송되었습니다!" });
+        setFormData({ name: "", email: "", message: "" });
+        setTimeout(() => setSubmitStatus(null), 3000);
+      }
+    } catch (err) {
+      setSubmitStatus({ type: "error", message: "메시지 전송에 실패했습니다." });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-100 via-slate-50 to-slate-200 text-slate-900 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 dark:text-slate-50">
@@ -444,7 +508,7 @@ export default function App() {
 
               <form
                 className="space-y-3 text-sm"
-                onSubmit={(e) => e.preventDefault()}
+                onSubmit={handleSubmit}
               >
                 <div className="grid gap-3 md:grid-cols-2">
                   <label className="space-y-1">
@@ -453,6 +517,9 @@ export default function App() {
                     </span>
                     <input
                       type="text"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
                       placeholder={t.namePlaceholder}
                       className="w-full rounded-xl border border-slate-700/80 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 outline-none ring-0 transition focus:border-brand-500 focus:bg-slate-900"
                     />
@@ -463,6 +530,9 @@ export default function App() {
                     </span>
                     <input
                       type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
                       placeholder={t.emailPlaceholder}
                       className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none ring-0 transition focus:border-brand-500 focus:bg-white dark:border-slate-700/80 dark:bg-slate-900/80 dark:text-slate-100 dark:focus:bg-slate-900"
                     />
@@ -473,13 +543,31 @@ export default function App() {
                     {t.message}
                   </span>
                   <textarea
+                    name="message"
                     rows={4}
+                    value={formData.message}
+                    onChange={handleInputChange}
                     placeholder={t.messagePlaceholder}
                     className="w-full resize-none rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none ring-0 transition focus:border-brand-500 focus:bg-white dark:border-slate-700/80 dark:bg-slate-900/80 dark:text-slate-100 dark:focus:bg-slate-900"
                   />
                 </label>
-                <button type="submit" className="btn-primary">
-                  {t.sendMessage}
+                {submitStatus && (
+                  <div
+                    className={`rounded-lg px-3 py-2 text-sm ${
+                      submitStatus.type === "success"
+                        ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                        : "bg-red-500/20 text-red-600 dark:text-red-400"
+                    }`}
+                  >
+                    {submitStatus.message}
+                  </div>
+                )}
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? "전송 중..." : t.sendMessage}
                 </button>
               </form>
             </div>
